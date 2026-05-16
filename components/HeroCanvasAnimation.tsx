@@ -1,15 +1,16 @@
 'use client';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, useScroll, useTransform, useSpring, useVelocity } from 'framer-motion';
+import MagneticButton from '@/components/MagneticButton';
 
 const TOTAL_FRAMES = 240; // Adjusted for actual frame count
-const FRAME_PATH = '/frames'; // Folder containing frame_0.png to frame_239.png
+const FRAME_PATH = '/frames'; // Folder containing frame_0.webp to frame_239.webp
 
 export default function HeroCanvasAnimation() {
 const containerRef = useRef<HTMLDivElement>(null);
 const canvasRef = useRef<HTMLCanvasElement>(null);
-const [images, setImages] = useState<{ [key: number]: HTMLImageElement }>({});
-const [loadedFrames, setLoadedFrames] = useState<number[]>([]);
+const imagesRef = useRef<{ [key: number]: HTMLImageElement }>({});
+const loadedFramesRef = useRef<number[]>([]);
 const [imagesLoaded, setImagesLoaded] = useState(false);
 const [loadProgress, setLoadProgress] = useState(0);
 
@@ -41,72 +42,22 @@ smoothProgress,
 [0, TOTAL_FRAMES - 1]
 );
 
-// Preload frames strategy
-useEffect(() => {
-const loadFirstFrames = async () => {
-// Load first 5 frames immediately
-const firstFramesToLoad = [0, 1, 2, 3, 4];
-const promises = firstFramesToLoad.map((i) => {
-return new Promise<void>((resolve) => {
-const img = new Image();
-img.src = `${FRAME_PATH}/frame_${i}.png`;
-img.onload = () => {
-setImages((prev) => ({ ...prev, [i]: img }));
-setLoadedFrames((prev) => [...prev, i]);
-resolve();
-};
-img.onerror = () => resolve(); // Graceful fallback or ignore error
-});
-});
-await Promise.all(promises);
-setImagesLoaded(true); // Signal that at least the first frames are ready to be displayed
-
-// Now load the rest in the background
-const loadRest = async () => {
-for (let i = 5; i < TOTAL_FRAMES; i++) {
-// Use requestIdleCallback or setTimeout to avoid blocking
-await new Promise((resolve) => {
-const schedule = (typeof window !== 'undefined' && window.requestIdleCallback) || ((cb) => setTimeout(cb, 10));
-schedule(() => {
-const img = new Image();
-img.src = `${FRAME_PATH}/frame_${i}.png`;
-img.onload = () => {
-setImages((prev) => ({ ...prev, [i]: img }));
-setLoadedFrames((prev) => [...prev, i]);
-setLoadProgress((prev) => prev + 1);
-resolve(null);
-};
-img.onerror = () => resolve(null); // Graceful fallback
-});
-});
-}
-};
-loadRest();
-};
-loadFirstFrames();
-}, []);
-
-// Canvas rendering
-useEffect(() => {
-if (!imagesLoaded || !canvasRef.current) return;
+// Helper to render a frame
+const renderFrame = useCallback(() => {
+if (!canvasRef.current) return;
 const canvas = canvasRef.current;
 const ctx = canvas.getContext('2d');
 if (!ctx) return;
 
-// Set initial size
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-const renderFrame = () => {
 const currentFrame = Math.round(frameIndex.get());
-let img = images[currentFrame];
+let img = imagesRef.current[currentFrame];
 
 // Fallback to nearest loaded frame if current is missing
-if (!img && loadedFrames.length > 0) {
-const nearest = loadedFrames.reduce((prev, curr) => {
+if (!img && loadedFramesRef.current.length > 0) {
+const nearest = loadedFramesRef.current.reduce((prev, curr) => {
 return Math.abs(curr - currentFrame) < Math.abs(prev - currentFrame) ? curr : prev;
-}, loadedFrames[0]);
-img = images[nearest];
+}, loadedFramesRef.current[0]);
+img = imagesRef.current[nearest];
 }
 
 if (img) {
@@ -121,11 +72,71 @@ const y = (canvas.height - img.height * scale) / 2;
 ctx.clearRect(0, 0, canvas.width, canvas.height);
 ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
 }
-};
-const unsubscribe = frameIndex.on('change', renderFrame);
-renderFrame(); // Initial render
+}, [frameIndex]);
 
-// Handle window resize
+// Preload frames strategy
+useEffect(() => {
+const loadFirstFrames = async () => {
+// Load first 5 frames immediately
+const firstFramesToLoad = [0, 1, 2, 3, 4];
+const promises = firstFramesToLoad.map((i) => {
+return new Promise<void>((resolve) => {
+const img = new Image();
+img.src = `${FRAME_PATH}/frame_${i}.webp`;
+img.onload = () => {
+imagesRef.current[i] = img;
+loadedFramesRef.current.push(i);
+resolve();
+};
+img.onerror = () => resolve(); // Graceful fallback
+});
+});
+await Promise.all(promises);
+setImagesLoaded(true); // Signal that at least the first frames are ready
+renderFrame(); // Render first frame
+
+// Now load the rest in the background
+const loadRest = async () => {
+for (let i = 5; i < TOTAL_FRAMES; i++) {
+await new Promise((resolve) => {
+const schedule = (typeof window !== 'undefined' && window.requestIdleCallback) || ((cb) => setTimeout(cb, 10));
+schedule(() => {
+const img = new Image();
+img.src = `${FRAME_PATH}/frame_${i}.webp`;
+img.onload = () => {
+imagesRef.current[i] = img;
+loadedFramesRef.current.push(i);
+setLoadProgress((prev) => prev + 1);
+
+// If this is the frame we currently need, render it
+const currentFrame = Math.round(frameIndex.get());
+if (currentFrame === i) {
+renderFrame();
+}
+resolve(null);
+};
+img.onerror = () => resolve(null);
+});
+});
+}
+};
+loadRest();
+};
+loadFirstFrames();
+}, [renderFrame, frameIndex]);
+
+// Canvas setup and resize
+useEffect(() => {
+if (!imagesLoaded || !canvasRef.current) return;
+const canvas = canvasRef.current;
+
+// Set initial size
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+renderFrame();
+
+const unsubscribe = frameIndex.on('change', renderFrame);
+
 const handleResize = () => {
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -136,7 +147,7 @@ return () => {
 unsubscribe();
 window.removeEventListener('resize', handleResize);
 };
-}, [imagesLoaded, images, loadedFrames, frameIndex]);
+}, [imagesLoaded, renderFrame, frameIndex]);
 
 // Text overlay animations
 const section1Opacity = useTransform(smoothProgress, [0, 0.1, 0.2, 0.25], [0, 1, 1, 0]);
@@ -155,10 +166,11 @@ className="w-full h-full"
 />
 </motion.div>
 {/* Text Overlays */}
-<div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+<div className="absolute inset-0 pointer-events-none">
+{/* Section 1: Center */}
 <motion.div
 style={{ opacity: section1Opacity }}
-className="text-center px-4"
+className="absolute inset-0 flex flex-col items-center justify-center text-center px-4"
 >
 <h1 className="text-7xl md:text-9xl font-playfair font-bold text-amber-50 mb-4 tracking-tight">
 Experience Coffee
@@ -167,42 +179,54 @@ Experience Coffee
 Where every sip defies gravity
 </p>
 </motion.div>
+
+{/* Section 2: Left */}
 <motion.div
 style={{ opacity: section2Opacity }}
-className="text-left px-8 md:px-16 max-w-2xl"
+className="absolute inset-0 flex flex-col items-start justify-center text-left px-8 md:px-16"
 >
+<div className="max-w-2xl">
 <h2 className="text-5xl md:text-7xl font-playfair font-semibold text-amber-50 mb-3">
 Crafted to Perfection
 </h2>
 <p className="text-lg md:text-xl text-amber-100/70 font-inter">
 From bean to cup, excellence floats in every drop
 </p>
+</div>
 </motion.div>
+
+{/* Section 3: Right */}
 <motion.div
 style={{ opacity: section3Opacity }}
-className="text-right px-8 md:px-16 max-w-2xl ml-auto"
+className="absolute inset-0 flex flex-col items-end justify-center text-right px-8 md:px-16"
 >
+<div className="max-w-2xl">
 <h2 className="text-5xl md:text-7xl font-playfair font-semibold text-amber-50 mb-3">
 Anti-Gravity Flavor
 </h2>
 <p className="text-lg md:text-xl text-amber-100/70 font-inter">
 Defying expectations, elevating taste beyond limits
 </p>
+</div>
 </motion.div>
+
+{/* Section 4: Center */}
 <motion.div
 style={{ opacity: section4Opacity }}
-className="text-center px-4"
+className="absolute inset-0 flex flex-col items-center justify-center text-center px-4"
 >
 <h2 className="text-6xl md:text-8xl font-playfair font-bold text-amber-50 mb-6">
 Discover Your Blend
 </h2>
+<MagneticButton className="pointer-events-auto">
 <motion.button
 whileHover={{ scale: 1.05 }}
 whileTap={{ scale: 0.95 }}
-className="px-8 py-4 bg-gradient-to-r from-[#4F9C8F] to-[#3D8B7F] text-white rounded-full text-lg font-semibold shadow-2xl pointer-events-auto"
+className="px-8 py-4 bg-gradient-to-r from-[#4F9C8F] to-[#3D8B7F] text-white rounded-full text-lg font-semibold shadow-2xl"
 >
 Explore Collection ↓
 </motion.button>
+</MagneticButton>
 </motion.div>
 </div>
 {/* Scroll Indicator */}

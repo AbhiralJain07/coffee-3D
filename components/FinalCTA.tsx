@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
+import MagneticButton from '@/components/MagneticButton';
 
 export default function FinalCTA() {
 return (
@@ -32,6 +33,7 @@ className="text-lg md:text-xl text-[#C9B8A0] mb-12 font-inter"
 >
 Experience the art of coffee craftsmanship
 </motion.p>
+<MagneticButton className="flex justify-center">
 <motion.button
 initial={{ opacity: 0, scale: 0.8 }}
 whileInView={{ opacity: 1, scale: 1 }}
@@ -43,6 +45,7 @@ className="px-16 py-5 bg-gradient-to-r from-[#4F9C8F] to-[#3D8B7F] text-white ro
 >
 Explore Full Menu
 </motion.button>
+</MagneticButton>
 {/* Decorative Sparkle */}
 <motion.div
 animate={{ rotate: 360, scale: [1, 1.2, 1] }}

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
+import CustomCursor from '@/components/CustomCursor';
 import './globals.css';
 
 const inter = Inter({
@@ -24,7 +25,10 @@ children: React.ReactNode;
 }) {
 return (
 <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-<body>{children}</body>
+<body>
+<CustomCursor />
+{children}
+</body>
 </html>
 );
 }

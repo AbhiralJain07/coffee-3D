@@ -1,12 +1,20 @@
 'use client';
-import { motion } from 'framer-motion';
+import { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import Image from 'next/image';
 import ProductCard from './ProductCard';
 import { coffeeProducts } from '@/data/products';
 
 export default function ProductShowcase() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start end', 'end start']
+  });
+  
+  const y = useTransform(scrollYProgress, [0, 1], ['-10%', '10%']);
 return (
-<section className="py-24 px-4 md:px-8 relative">
+<section ref={sectionRef} className="py-24 px-4 md:px-8 relative">
 {/* Coffee Splash Banner */}
 <motion.div
 initial={{ opacity: 0, y: -100 }}
@@ -15,12 +23,14 @@ viewport={{ once: true }}
 className="relative h-64 mb-16 rounded-3xl overflow-hidden"
 >
 <div className="absolute inset-0 bg-gradient-to-r from-[#3D2418] via-[#4D3428] to-[#3D2418]" />
+<motion.div style={{ y, height: '120%', width: '100%', position: 'absolute', top: '-10%' }}>
 <Image
 src="/coffee/splash-banner.png"
 alt="Coffee Splash"
 fill
 className="object-cover mix-blend-overlay opacity-60"
 />
+</motion.div>
 {/* Floating Coffee Beans */}
 {[...Array(8)].map((_, i) => (
 <motion.div

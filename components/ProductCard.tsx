@@ -1,5 +1,5 @@
 'use client';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
 import Image from 'next/image';
 import { CoffeeProduct } from '@/data/products';
 
@@ -9,15 +9,43 @@ index: number;
 }
 
 export default function ProductCard({ product, index }: ProductCardProps) {
-return (
-<motion.div
-initial={{ opacity: 0, y: 50 }}
-whileInView={{ opacity: 1, y: 0 }}
-viewport={{ once: true, margin: '-100px' }}
-transition={{ duration: 0.6, delay: index * 0.1 }}
-whileHover={{ scale: 1.05, y: -5 }}
-className="bg-[#3D2820]/80 backdrop-blur-sm rounded-2xl p-6 border border-[#5A4034] hover:border-[#4F9C8F] transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-[#4F9C8F]/20"
->
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const rotateX = useTransform(y, [-100, 100], [10, -10]);
+  const rotateY = useTransform(x, [-100, 100], [-10, 10]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const relativeX = mouseX - width / 2;
+    const relativeY = mouseY - height / 2;
+    
+    x.set(relativeX);
+    y.set(relativeY);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.div
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ rotateX, rotateY, transformStyle: 'preserve-3d', perspective: 1000 }}
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-100px' }}
+      transition={{ duration: 0.6, delay: index * 0.1 }}
+      whileHover={{ scale: 1.02, y: -5 }}
+      className="bg-[#3D2820]/80 backdrop-blur-sm rounded-2xl p-6 border border-[#5A4034] hover:border-[#4F9C8F] transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-[#4F9C8F]/20"
+    >
 {/* Star Rating */}
 <div className="flex items-center gap-2 mb-4">
 <span className="text-[#FFD700] text-lg">★</span>
