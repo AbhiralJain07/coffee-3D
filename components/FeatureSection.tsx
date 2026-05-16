@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { features } from '@/data/products';
 
 export default function FeatureSection() {
@@ -43,10 +44,12 @@ animate={{ rotate: 360 }}
 transition={{ repeat: Infinity, duration: 20, ease: 'linear' }}
 className="absolute inset-0 bg-gradient-to-r from-[#4F9C8F]/20 to-[#D4A574]/20 rounded-full blur-3xl"
 />
-<img
+<Image
 src="/coffee/cup-centered.png"
 alt="Premium Coffee Cup"
-className="relative z-10 w-80 h-80 object-contain drop-shadow-2xl"
+width={320}
+height={320}
+className="relative z-10 object-contain drop-shadow-2xl"
 />
 </div>
 </motion.div>

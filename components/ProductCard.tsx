@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { CoffeeProduct } from '@/data/products';
 
 interface ProductCardProps {
@@ -23,11 +24,12 @@ className="bg-[#3D2820]/80 backdrop-blur-sm rounded-2xl p-6 border border-[#5A40
 <span className="text-[#F5E6D3] font-semibold text-sm">{product.rating}</span>
 </div>
 {/* Coffee Image */}
-<div className="w-full h-56 bg-[#2D1810] rounded-xl mb-5 overflow-hidden">
-<img
+<div className="relative w-full h-56 bg-[#2D1810] rounded-xl mb-5 overflow-hidden">
+<Image
 src={product.image}
 alt={product.name}
-className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+fill
+className="object-cover hover:scale-110 transition-transform duration-500"
 />
 </div>
 {/* Title & Description */}

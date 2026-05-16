@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import ProductCard from './ProductCard';
 import { coffeeProducts } from '@/data/products';
 
@@ -14,10 +15,11 @@ viewport={{ once: true }}
 className="relative h-64 mb-16 rounded-3xl overflow-hidden"
 >
 <div className="absolute inset-0 bg-gradient-to-r from-[#3D2418] via-[#4D3428] to-[#3D2418]" />
-<img
+<Image
 src="/coffee/splash-banner.png"
 alt="Coffee Splash"
-className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60"
+fill
+className="object-cover mix-blend-overlay opacity-60"
 />
 {/* Floating Coffee Beans */}
 {[...Array(8)].map((_, i) => (
@@ -40,7 +42,7 @@ left: `${10 + i * 12}%`,
 top: `${20 + (i * 7) % 40}%`
 }}
 >
-<img src="/coffee/bean.png" alt="Coffee Bean" className="w-full h-full object-contain" />
+<Image src="/coffee/bean.png" alt="Coffee Bean" width={32} height={32} className="object-contain" />
 </motion.div>
 ))}
 </motion.div>
