@@ -8,7 +8,8 @@ const FRAME_PATH = '/frames'; // Folder containing frame_0.png to frame_239.png
 export default function HeroCanvasAnimation() {
 const containerRef = useRef<HTMLDivElement>(null);
 const canvasRef = useRef<HTMLCanvasElement>(null);
-const [images, setImages] = useState<HTMLImageElement[]>([]);
+const [images, setImages] = useState<{ [key: number]: HTMLImageElement }>({});
+const [loadedFrames, setLoadedFrames] = useState<number[]>([]);
 const [imagesLoaded, setImagesLoaded] = useState(false);
 const [loadProgress, setLoadProgress] = useState(0);
 
@@ -40,25 +41,49 @@ smoothProgress,
 [0, TOTAL_FRAMES - 1]
 );
 
-// Preload all frames
+// Preload frames strategy
 useEffect(() => {
-const loadImages = async () => {
-const imagePromises = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
-return new Promise<HTMLImageElement>((resolve, reject) => {
+const loadFirstFrames = async () => {
+// Load first 5 frames immediately
+const firstFramesToLoad = [0, 1, 2, 3, 4];
+const promises = firstFramesToLoad.map((i) => {
+return new Promise<void>((resolve) => {
 const img = new Image();
-img.src = `${FRAME_PATH}/frame_${i}.png`; // Changed to .png
+img.src = `${FRAME_PATH}/frame_${i}.png`;
 img.onload = () => {
-setLoadProgress((prev) => prev + (100 / TOTAL_FRAMES));
-resolve(img);
+setImages((prev) => ({ ...prev, [i]: img }));
+setLoadedFrames((prev) => [...prev, i]);
+resolve();
 };
-img.onerror = reject;
+img.onerror = () => resolve(); // Graceful fallback or ignore error
 });
 });
-const loadedImages = await Promise.all(imagePromises);
-setImages(loadedImages);
-setImagesLoaded(true);
+await Promise.all(promises);
+setImagesLoaded(true); // Signal that at least the first frames are ready to be displayed
+
+// Now load the rest in the background
+const loadRest = async () => {
+for (let i = 5; i < TOTAL_FRAMES; i++) {
+// Use requestIdleCallback or setTimeout to avoid blocking
+await new Promise((resolve) => {
+const schedule = (typeof window !== 'undefined' && window.requestIdleCallback) || ((cb) => setTimeout(cb, 10));
+schedule(() => {
+const img = new Image();
+img.src = `${FRAME_PATH}/frame_${i}.png`;
+img.onload = () => {
+setImages((prev) => ({ ...prev, [i]: img }));
+setLoadedFrames((prev) => [...prev, i]);
+setLoadProgress((prev) => prev + 1);
+resolve(null);
 };
-loadImages();
+img.onerror = () => resolve(null); // Graceful fallback
+});
+});
+}
+};
+loadRest();
+};
+loadFirstFrames();
 }, []);
 
 // Canvas rendering
@@ -74,7 +99,16 @@ canvas.height = window.innerHeight;
 
 const renderFrame = () => {
 const currentFrame = Math.round(frameIndex.get());
-const img = images[Math.max(0, Math.min(currentFrame, TOTAL_FRAMES - 1))];
+let img = images[currentFrame];
+
+// Fallback to nearest loaded frame if current is missing
+if (!img && loadedFrames.length > 0) {
+const nearest = loadedFrames.reduce((prev, curr) => {
+return Math.abs(curr - currentFrame) < Math.abs(prev - currentFrame) ? curr : prev;
+}, loadedFrames[0]);
+img = images[nearest];
+}
+
 if (img) {
 // Calculate scaling (contain fit)
 const scale = Math.min(
@@ -102,7 +136,7 @@ return () => {
 unsubscribe();
 window.removeEventListener('resize', handleResize);
 };
-}, [imagesLoaded, images, frameIndex]);
+}, [imagesLoaded, images, loadedFrames, frameIndex]);
 
 // Text overlay animations
 const section1Opacity = useTransform(smoothProgress, [0, 0.1, 0.2, 0.25], [0, 1, 1, 0]);
@@ -113,21 +147,6 @@ const scrollIndicatorOpacity = useTransform(smoothProgress, [0, 0.1], [1, 0]);
 
 return (
 <div ref={containerRef} className="relative h-[500vh]">
-{!imagesLoaded ? (
-<div className="fixed inset-0 bg-[#1A0F0A] flex flex-col items-center justify-center z-50">
-<div className="w-64 h-2 bg-amber-900/30 rounded-full overflow-hidden mb-4">
-<motion.div
-className="h-full bg-gradient-to-r from-[#D4A574] to-[#4F9C8F]"
-initial={{ width: '0%' }}
-animate={{ width: `${loadProgress}%` }}
-transition={{ duration: 0.3 }}
-/>
-</div>
-<p className="text-amber-100/70 text-lg font-inter">
-Loading Experience... {Math.round(loadProgress)}%
-</p>
-</div>
-) : (
 <div className="sticky top-0 h-screen w-full overflow-hidden">
 <motion.div style={{ y: yOffset }} className="w-full h-full">
 <canvas
@@ -202,6 +221,12 @@ className="w-6 h-10 border-2 border-amber-100/40 rounded-full flex items-start j
 <div className="w-1 h-3 bg-amber-100/60 rounded-full" />
 </motion.div>
 </motion.div>
+</div>
+
+{/* Non-blocking progress indicator */}
+{loadProgress < TOTAL_FRAMES - 5 && (
+<div className="fixed bottom-4 right-4 bg-[#1A0F0A]/80 backdrop-blur-md px-4 py-2 rounded-full text-sm text-amber-100/70 z-50">
+Loading Frames: {loadProgress + 5}/{TOTAL_FRAMES}
 </div>
 )}
 </div>
